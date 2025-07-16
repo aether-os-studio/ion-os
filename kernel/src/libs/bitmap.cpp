@@ -21,7 +21,7 @@ bool bitmap::bitmap::get(std::size_t index)
     std::size_t byte_index = index / 8;
     std::size_t bit_index = index % 8;
 
-    return data[byte_index] & (1 << bit_index);
+    return (data[byte_index] & (1 << bit_index)) != 0;
 }
 
 void bitmap::bitmap::set(std::size_t index, bool value)
