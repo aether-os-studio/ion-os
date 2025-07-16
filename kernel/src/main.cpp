@@ -49,6 +49,7 @@ extern void (*__init_array_end[])();
 
 #include <mm/hhdm.hpp>
 #include <mm/frame.hpp>
+#include <arch/arch.hpp>
 
 extern "C" void kmain()
 {
