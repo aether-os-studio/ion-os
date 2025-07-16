@@ -7,6 +7,7 @@ namespace arch
     {
         gdt::init();
         idt::init();
+        acpi::init();
     }
 
 }
