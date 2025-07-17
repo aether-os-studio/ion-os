@@ -66,6 +66,9 @@ namespace acpi
         current_table.map_range(xsdt_virt_ptr, p->xsdt_address, 1, table::present | table::read_write);
 
         x = (xsdt *)xsdt_virt_ptr;
+
+        load_table(HPET, hpet_table::init);
+        load_table(APIC, apic_table::init);
     }
 
 }
