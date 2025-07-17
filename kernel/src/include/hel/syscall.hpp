@@ -1,6 +1,7 @@
 #pragma once
 
 #include <libs/klibc.hpp>
+#include <arch/arch.hpp>
 #include <hel/dsocket.hpp>
 
 namespace syscall
@@ -77,4 +78,7 @@ namespace syscall
     std::size_t k_driver_send_impl(std::size_t handle_id, uint8_t *in, std::size_t limit, int flags, dsocket::d_socket_addr_t *addr, std::uint32_t len);
 
     std::size_t k_driver_recv_impl(std::size_t handle_id, uint8_t *out, std::size_t limit, int flags, dsocket::d_socket_addr_t *addr, std::uint32_t *len);
+
+    uint64_t k_clone_impl(struct pt_regs *regs, uint64_t flags, uint64_t newsp, int *parent_tid, int *child_tid, uint64_t tls);
+
 }

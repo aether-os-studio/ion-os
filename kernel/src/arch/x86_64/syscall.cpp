@@ -80,6 +80,9 @@ namespace syscall
             regs->rax = syscall::k_driver_recv_impl(regs->rdi, (uint8_t *)regs->rsi, regs->rdx, regs->rcx, (dsocket::d_socket_addr_t *)regs->r10, (uint32_t *)regs->r8);
             break;
 
+        case k_clone:
+            regs->rax = syscall::k_clone_impl(regs, regs->rdi, regs->rsi, (int *)regs->rdx, (int *)regs->r10, regs->r8);
+
         default:
             break;
         }
