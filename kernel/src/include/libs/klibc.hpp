@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <cstdarg>
 
+#define MAX_CPU_NUM 64
+
 extern "C"
 {
 

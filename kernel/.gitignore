@@ -2,6 +2,7 @@
 /.cache
 /freestnd-c-hdrs
 /freestnd-cxx-hdrs
+/frigg
 /cc-runtime
 /limine-protocol
 /bin-*

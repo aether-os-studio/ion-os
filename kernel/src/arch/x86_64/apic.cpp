@@ -5,7 +5,7 @@
 namespace
 {
 
-    __attribute__((used, section(".limine_requests"))) volatile limine_mp_request smp_request = {
+    __attribute__((used, section(".limine_requests"))) volatile limine_mp_request mp_request = {
         .id = LIMINE_MP_REQUEST,
         .revision = 0,
         .response = nullptr,
@@ -19,6 +19,24 @@ namespace apic_table
     std::uintptr_t lapic_address;
     std::uintptr_t ioapic_address;
     bool x2apic_mode = false;
+
+    std::size_t cpu_count = 0;
+    uint32_t cpuid_to_lapicid[MAX_CPU_NUM];
+
+    uint32_t get_cpuid_by_lapic_id(uint32_t lapic_id)
+    {
+        for (uint32_t cpu_id = 0; cpu_id < cpu_count; cpu_id++)
+        {
+            if (cpuid_to_lapicid[cpu_id] == lapic_id)
+            {
+                return cpu_id;
+            }
+        }
+
+        debug::printk("Cannot get cpu id, lapic id = %d\n", lapic_id);
+
+        return 0;
+    }
 
     void disable_pic()
     {
@@ -47,7 +65,7 @@ namespace apic_table
 
     void local_apic_init()
     {
-        x2apic_mode = (smp_request.flags & LIMINE_MP_X2APIC) != 0;
+        x2apic_mode = (mp_request.flags & LIMINE_MP_X2APIC) != 0;
 
         if (x2apic_mode)
         {
@@ -110,6 +128,43 @@ namespace apic_table
         ioapic_add((uint8_t)idx_mouse, 12);
     }
 
+    void ap_entry(struct limine_mp_info *cpu)
+    {
+        gdt::init();
+        idt::init();
+
+        debug::printk("AP %d starting\n", cpu->processor_id);
+
+        for (;;)
+        {
+#if defined(__x86_64__)
+            asm("hlt");
+#elif defined(__aarch64__) || defined(__riscv)
+            asm("wfi");
+#elif defined(__loongarch64)
+            asm("idle 0");
+#endif
+        }
+    }
+
+    void smp_init()
+    {
+        struct limine_mp_response *mp_response = mp_request.response;
+
+        cpu_count = mp_response->cpu_count;
+
+        for (uint64_t i = 0; i < mp_response->cpu_count; i++)
+        {
+            struct limine_mp_info *cpu = mp_response->cpus[i];
+            cpuid_to_lapicid[cpu->processor_id] = cpu->lapic_id;
+
+            if (cpu->lapic_id == mp_response->bsp_lapic_id)
+                continue;
+
+            cpu->goto_address = ap_entry;
+        }
+    }
+
     void init(void *m)
     {
         acpi::madt *madt = (acpi::madt *)m;
@@ -138,6 +193,8 @@ namespace apic_table
         disable_pic();
         local_apic_init();
         io_apic_init();
+
+        smp_init();
     }
 
 }

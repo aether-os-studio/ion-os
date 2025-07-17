@@ -50,6 +50,8 @@ extern void (*__init_array_end[])();
 #include <mm/hhdm.hpp>
 #include <mm/frame.hpp>
 #include <arch/arch.hpp>
+#include <mm/heap.hpp>
+#include <thread/thread.hpp>
 
 extern "C" void kmain()
 {
@@ -70,6 +72,10 @@ extern "C" void kmain()
     debug::init();
 
     arch::init();
+
+    heap::init();
+
+    thread::init();
 
     hcf();
 }

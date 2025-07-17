@@ -125,7 +125,7 @@ void bitmap::bitmap::set_range(std::size_t start, std::size_t end, bool value)
         }
     }
 
-    for (size_t i = end_word * 8; i <= end; i++)
+    for (size_t i = end_word * 8; i < end; i++)
     {
         this->set(i, value);
     }

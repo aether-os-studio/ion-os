@@ -37,8 +37,12 @@ namespace debug
 
     char buf[4096];
 
+    spinlock_t lock = {0};
+
     void printk(const char *fmt, ...)
     {
+        spin_lock(&lock);
+
         va_list args;
         va_start(args, fmt);
         int len = vsprintf(buf, fmt, args);
@@ -50,6 +54,8 @@ namespace debug
                 write('\r');
             write(buf[i]);
         }
+
+        spin_unlock(&lock);
     }
 
 }
