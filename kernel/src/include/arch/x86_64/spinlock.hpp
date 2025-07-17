@@ -8,6 +8,8 @@ typedef struct
     uint64_t rflags;
 } spinlock_t;
 
+#define SPIN_INIT {0, 0}
+
 static inline void spin_lock(spinlock_t *lock)
 {
     uint64_t flags;

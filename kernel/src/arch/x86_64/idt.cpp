@@ -1,4 +1,5 @@
 #include <arch/arch.hpp>
+#include <thread/schedule.hpp>
 
 #define _set_gate(gate_selector_addr, attr, ist, code_addr)                                    \
     do                                                                                         \
@@ -318,15 +319,21 @@ namespace idt
             asm volatile("hlt");
     }
 
+    extern "C" void do_lapic_timer(struct pt_regs *regs, uint64_t error_code)
+    {
+        (void)error_code;
+
+        apic_table::end_of_interrupt();
+
+        thread::thread *next = thread::search(thread::kRunNone, arch::get_current_cpu_id());
+        if (thread::get_current_thread() != next)
+        {
+            schedule::switch_to(regs, thread::get_current_thread(), next);
+        }
+    }
+
     void init()
     {
-        struct gdt::gdtr idt_pointer = ((struct gdt::gdtr){
-            .limit = ((uint16_t)((uint32_t)sizeof(idt_table) - 1U)),
-            .pointer = &idt_table,
-        });
-
-        asm volatile("lidt %[ptr]\n\t" : : [ptr] "m"(idt_pointer));
-
         set_trap_gate(0, 0, (void *)divide_error);
         set_trap_gate(1, 0, (void *)debug);
         set_intr_gate(2, 0, (void *)nmi);
@@ -348,5 +355,24 @@ namespace idt
         set_trap_gate(18, 0, (void *)machine_check);
         set_trap_gate(19, 0, (void *)SIMD_exception);
         set_trap_gate(20, 0, (void *)virtualization_exception);
+
+        set_intr_gate((unsigned int)apic_table::idx_timer, 0, (void *)lapic_timer);
+
+        struct gdt::gdtr idt_pointer = ((struct gdt::gdtr){
+            .limit = ((uint16_t)((uint32_t)sizeof(idt_table) - 1U)),
+            .pointer = &idt_table,
+        });
+
+        asm volatile("lidt %[ptr]\n\t" : : [ptr] "m"(idt_pointer));
+    }
+
+    void init_ap()
+    {
+        struct gdt::gdtr idt_pointer = ((struct gdt::gdtr){
+            .limit = ((uint16_t)((uint32_t)sizeof(idt_table) - 1U)),
+            .pointer = &idt_table,
+        });
+
+        asm volatile("lidt %[ptr]\n\t" : : [ptr] "m"(idt_pointer));
     }
 }

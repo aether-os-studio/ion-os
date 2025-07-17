@@ -1,6 +1,8 @@
 #include <limine.h>
 #include <arch/arch.hpp>
 #include <mm/hhdm.hpp>
+#include <mm/frame.hpp>
+#include <thread/thread.hpp>
 
 namespace
 {
@@ -13,8 +15,15 @@ namespace
 
 }
 
+#define ltr(n)                                    \
+    do                                            \
+    {                                             \
+        asm volatile("ltr %%ax" ::"a"((n) << 3)); \
+    } while (0)
+
 namespace apic_table
 {
+    gdt::tss_t tss[MAX_CPU_NUM];
 
     std::uintptr_t lapic_address;
     std::uintptr_t ioapic_address;
@@ -22,6 +31,15 @@ namespace apic_table
 
     std::size_t cpu_count = 0;
     uint32_t cpuid_to_lapicid[MAX_CPU_NUM];
+
+    void tss_init()
+    {
+        uint64_t sp = hhdm::phys_to_virt(frame::alloc_frames(thread::kThreadStackSize / PAGE_SIZE)) + thread::kThreadStackSize;
+        uint64_t offset = 10 + arch::get_current_cpu_id() * 2;
+        gdt::set_tss64((uint32_t *)&tss[arch::get_current_cpu_id()], sp, sp, sp, sp, sp, sp, sp, sp, sp, sp);
+        gdt::set_tss_descriptor(offset, &tss[arch::get_current_cpu_id()]);
+        ltr(offset);
+    }
 
     uint32_t get_cpuid_by_lapic_id(uint32_t lapic_id)
     {
@@ -87,8 +105,6 @@ namespace apic_table
             (uint64_t)((uint64_t)(lapic_timer * 1000) / LAPIC_TIMER_SPEED);
         lapic_write(LAPIC_REG_TIMER, lapic_read(LAPIC_REG_TIMER) | 1 << 17);
         lapic_write(LAPIC_REG_TIMER_INITCNT, calibrated_timer_initial);
-
-        debug::printk("local apic init successfully\n");
     }
 
     uint64_t lapic_id()
@@ -118,27 +134,70 @@ namespace apic_table
         ioapic_write(ioredtbl + 1, (uint32_t)(redirect >> 32));
     }
 
+    void ioapic_enable(uint8_t vector)
+    {
+        uint64_t index = 0x10 + ((vector - 32) * 2);
+        uint64_t value = (uint64_t)ioapic_read(index + 1) << 32 | (uint64_t)ioapic_read(index);
+        value &= (~0x10000UL);
+        ioapic_write(index, (uint32_t)(value & 0xFFFFFFFF));
+        ioapic_write(index + 1, (uint32_t)(value >> 32));
+    }
+
     void io_apic_init()
     {
         arch_table::page_table current_table = arch_table::from_current(false);
         current_table.map_range(hhdm::phys_to_virt(ioapic_address), ioapic_address, 1, table::present | table::read_write);
         ioapic_address = hhdm::phys_to_virt(ioapic_address);
         ioapic_add((uint8_t)idx_timer, 0);
+        ioapic_enable((uint8_t)idx_timer);
         ioapic_add((uint8_t)idx_keyboard, 1);
+        ioapic_enable((uint8_t)idx_keyboard);
         ioapic_add((uint8_t)idx_mouse, 12);
+        ioapic_enable((uint8_t)idx_mouse);
     }
+
+    void sse_init()
+    {
+        asm volatile("movq %cr0, %rax\n\t"
+                     "and $0xFFF3, %ax	\n\t" // clear coprocessor emulation CR0.EM and CR0.TS
+                     "or $0x2, %ax\n\t"       // set coprocessor monitoring  CR0.MP
+                     "movq %rax, %cr0\n\t"
+                     "movq %cr4, %rax\n\t"
+                     "or $(3 << 9), %ax\n\t" // set CR4.OSFXSR and CR4.OSXMMEXCPT at the same time
+                     "movq %rax, %cr4\n\t");
+    }
+
+    bool ap_initialized = false;
 
     void ap_entry(struct limine_mp_info *cpu)
     {
-        gdt::init();
-        idt::init();
+        while (!ap_initialized)
+        {
+            asm volatile("pause");
+        }
+
+        sse_init();
+
+        gdt::init_ap();
+        idt::init_ap();
+
+        tss_init();
 
         debug::printk("AP %d starting\n", cpu->processor_id);
+
+        apic_table::local_apic_init();
+
+        while (!thread::thread_initialized)
+        {
+            asm volatile("pause");
+        }
+
+        thread::set_current_thread(thread::idle_threads[cpu->processor_id]);
 
         for (;;)
         {
 #if defined(__x86_64__)
-            asm("hlt");
+            asm("sti\n\thlt");
 #elif defined(__aarch64__) || defined(__riscv)
             asm("wfi");
 #elif defined(__loongarch64)
@@ -163,6 +222,8 @@ namespace apic_table
 
             cpu->goto_address = ap_entry;
         }
+
+        ap_initialized = true;
     }
 
     void init(void *m)
@@ -190,11 +251,20 @@ namespace apic_table
             current += (uint64_t)header->length;
         }
 
+        sse_init();
+
         disable_pic();
         local_apic_init();
         io_apic_init();
 
         smp_init();
+
+        tss_init();
+    }
+
+    void end_of_interrupt()
+    {
+        lapic_write(0xb0, 0);
     }
 
 }

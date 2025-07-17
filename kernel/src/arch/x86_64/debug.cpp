@@ -37,7 +37,7 @@ namespace debug
 
     char buf[4096];
 
-    spinlock_t lock = {0};
+    spinlock_t lock = SPIN_INIT;
 
     void printk(const char *fmt, ...)
     {

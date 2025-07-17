@@ -19,10 +19,10 @@
 #define PADDING_2M(size) (((size) + SIZE_2M - 1) & ~(size_t)(SIZE_2M - 1))
 #define PADDING_1G(size) (((size) + SIZE_1G - 1) & ~(size_t)(SIZE_1G - 1))
 
-#define blk_prevtail(ptr) (((size_t *)ptr)[-2])               // 上一个块的尾部标记
-#define blk_head(ptr) (((size_t *)ptr)[-1])                   // 块头部标记
-#define blk_tail(ptr, size) (((size_t *)(ptr + size))[0])     // 块尾部标记
-#define blk_nexthead(ptr, size) (((size_t *)(ptr + size))[1]) // 下一个块的头部标记
+#define blk_prevtail(ptr) (((size_t *)ptr)[-2])                           // 上一个块的尾部标记
+#define blk_head(ptr) (((size_t *)ptr)[-1])                               // 块头部标记
+#define blk_tail(ptr, size) (((size_t *)((char *)(ptr) + (size)))[0])     // 块尾部标记
+#define blk_nexthead(ptr, size) (((size_t *)((char *)(ptr) + (size)))[1]) // 下一个块的头部标记
 
 #define blk_noprev(ptr) ((bool)(blk_prevtail(ptr) & AREA_FLAG))             // 是否有上一个块
 #define blk_nonext(ptr, size) ((bool)(blk_nexthead(ptr, size) & AREA_FLAG)) // 是否有下一个块
@@ -52,7 +52,7 @@ static inline void blk_setfreed(void *ptr, size_t size)
 static inline void blk_setsize(void *ptr, size_t size)
 {
     ((size_t *)ptr)[-1] = size;
-    *(size_t *)(ptr + size) = size;
+    *(size_t *)((char *)(ptr) + size) = size;
 }
 
 // 判断分配区大小是否为 2M，仅对多分配区有效
@@ -102,7 +102,7 @@ static inline void *blk_next(void *ptr)
     size_t size = blk_size(ptr);
     if (blk_nonext(ptr, size))
         return NULL;
-    return ptr + size + 2 * sizeof(size_t);
+    return (char *)ptr + size + 2 * sizeof(size_t);
 }
 
 typedef void (*blk_detach_t)(void *data, void *ptr);

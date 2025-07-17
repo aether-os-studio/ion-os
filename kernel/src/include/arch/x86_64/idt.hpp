@@ -63,5 +63,9 @@ namespace idt
     extern "C" void SIMD_exception();
     extern "C" void virtualization_exception();
 
+    extern "C" void lapic_timer();
+
     void init();
+
+    void init_ap();
 }

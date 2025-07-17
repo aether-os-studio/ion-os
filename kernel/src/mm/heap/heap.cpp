@@ -3,7 +3,7 @@
 #include <mm/heap.hpp>
 
 static struct mpool pool;
-static spinlock_t lock = {0};
+static spinlock_t lock = SPIN_INIT;
 
 uint64_t get_all_memusage()
 {

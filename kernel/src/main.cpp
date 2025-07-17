@@ -26,7 +26,7 @@ namespace
         for (;;)
         {
 #if defined(__x86_64__)
-            asm("hlt");
+            asm("sti\n\thlt");
 #elif defined(__aarch64__) || defined(__riscv)
             asm("wfi");
 #elif defined(__loongarch64)
@@ -52,6 +52,7 @@ extern void (*__init_array_end[])();
 #include <arch/arch.hpp>
 #include <mm/heap.hpp>
 #include <thread/thread.hpp>
+#include <thread/schedule.hpp>
 
 extern "C" void kmain()
 {
@@ -77,5 +78,23 @@ extern "C" void kmain()
 
     thread::init();
 
+    schedule::init();
+
     hcf();
+}
+
+extern "C" void init_entry()
+{
+    debug::printk("init thread is running!!!\n");
+
+    for (;;)
+    {
+#if defined(__x86_64__)
+        asm("sti\n\thlt");
+#elif defined(__aarch64__) || defined(__riscv)
+        asm("wfi");
+#elif defined(__loongarch64)
+        asm("idle 0");
+#endif
+    }
 }

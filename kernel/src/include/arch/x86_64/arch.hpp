@@ -25,4 +25,9 @@ namespace arch
         return cr3;
     }
 
+    static inline int get_current_cpu_id()
+    {
+        return apic_table::get_cpuid_by_lapic_id(apic_table::lapic_id());
+    }
+
 }

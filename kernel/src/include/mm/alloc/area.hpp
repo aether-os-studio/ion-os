@@ -44,7 +44,7 @@ static inline void *allocarea_reinit(void *addr, size_t oldsize, size_t newsize)
     if (newsize < oldsize)
         return NULL;
 
-    void *blk = addr + oldsize + sizeof(size_t);
+    void *blk = (void *)((char *)addr + oldsize + sizeof(size_t));
     blk_setsize(blk, newsize - oldsize - 2 * sizeof(size_t));
     return blk;
 }

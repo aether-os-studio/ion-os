@@ -2,6 +2,8 @@
 
 #include <libs/klibc.hpp>
 
+#define IA32_KERNEL_GS_BASE 0xc0000102
+
 namespace context
 {
 
@@ -65,5 +67,18 @@ namespace context
     } arch_context_t;
 
     arch_context_t *arch_context_init(void *entry, void *stack);
+
+    void thread_switch_mm(std::uintptr_t next);
+    void thread_switch_to(struct pt_regs *intr_frame, arch_context_t *prev, arch_context_t *next);
+
+    static inline std::uint64_t get_current_thread_addr()
+    {
+        return (std::uint64_t)x86_io::rdmsr(IA32_KERNEL_GS_BASE);
+    }
+
+    static inline void set_current_thread_addr(std::uint64_t thread)
+    {
+        x86_io::wrmsr(IA32_KERNEL_GS_BASE, thread);
+    }
 
 }

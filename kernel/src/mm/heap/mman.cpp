@@ -34,12 +34,10 @@ bool mman_init(mman_t man, void *ptr, size_t size)
     man->cb_reqmem = NULL;
     man->cb_delmem = NULL;
     man->large_blk = NULL;
-#pragma unroll
     for (size_t i = 0; i < FREELIST_NUM; i++)
     {
         man->freed[i] = NULL;
     }
-#pragma unroll
     for (size_t i = 0; i < LARGEBLKLIST_NUM; i++)
     {
         man->large[i] = NULL;
@@ -264,6 +262,8 @@ void mman_free(mman_t man, void *ptr)
 
 size_t mman_msize(mman_t man, void *ptr)
 {
+    (void)man;
+
     if (ptr == NULL)
         return 0;
     return blk_size(ptr);

@@ -269,3 +269,11 @@ ENTRY(virtualization_exception)
     leaq do_virtualization_exception(%rip), %rax    // 获取中断服务程序的地址
     xchgq %rax, (%rsp)  // 把FUNC的地址换入栈中
     jmp Err_Code
+
+// 32 时钟中断
+ENTRY(lapic_timer)
+    pushq $0
+    pushq %rax
+    leaq do_lapic_timer(%rip), %rax    // 获取中断服务程序的地址
+    xchgq %rax, (%rsp)  // 把FUNC的地址换入栈中
+    jmp Err_Code

@@ -31,7 +31,6 @@ bool mpool_init(mpool_t pool, void *ptr, size_t size)
     pool->cb_reqmem = NULL;
     pool->cb_delmem = NULL;
     pool->large_blk = NULL;
-#pragma unroll
     for (size_t i = 0; i < FREELIST_NUM; i++)
     {
         pool->freed[i] = NULL;
@@ -74,7 +73,7 @@ static bool mpool_reqmem(mpool_t pool, size_t size)
         return false;
     size_t memsize = PADDING_16k(size);
 
-    void *mem = pool->cb_reqmem(pool->ptr + pool->size, memsize);
+    void *mem = pool->cb_reqmem((void *)((char *)pool->ptr + pool->size), memsize);
     if (mem == NULL)
         return false;
     if (mem != pool->ptr)
@@ -183,6 +182,8 @@ void mpool_free(mpool_t pool, void *ptr)
 
 size_t mpool_msize(mpool_t pool, void *ptr)
 {
+    (void)pool;
+
     if (ptr == NULL)
         return 0;
     return blk_size(ptr);

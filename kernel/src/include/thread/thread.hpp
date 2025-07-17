@@ -19,6 +19,18 @@ namespace thread
         kRunTerminated
     };
 
+    enum signal
+    {
+        kSigNone,
+        kSigInterrupt
+    };
+
+    enum flags : std::uint32_t
+    {
+        kFlagNone = 0,
+        kFlagServer = 1
+    };
+
     class thread
     {
     public:
@@ -42,28 +54,40 @@ namespace thread
 
         std::size_t id;
 
+        int cpu_id;
+
+        std::uint64_t jiffies;
+
         context::arch_context_t *arch_context;
+
+        std::uintptr_t syscall_stack;
 
         context::mm_context_t *mm;
 
+        flags tflags;
+
     private:
         run_state state;
-
-        enum signal
-        {
-            kSigNone,
-            kSigInterrupt
-        };
-
-        enum flags : std::uint32_t
-        {
-            kFlagServer = 1
-        };
     };
 
-    thread *create(void *entry);
+    extern bool thread_initialized;
+
+    extern thread *threads[kMaxThreadCount];
+    extern thread *idle_threads[MAX_CPU_NUM];
+
+    thread *create(void *entry, flags tflags);
 
     thread *search(run_state state, int cpu_id);
+
+    static inline thread *get_current_thread()
+    {
+        return (thread *)context::get_current_thread_addr();
+    }
+
+    static inline void set_current_thread(thread *thread)
+    {
+        context::set_current_thread_addr((std::uint64_t)thread);
+    }
 
     void init();
 
