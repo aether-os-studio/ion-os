@@ -48,11 +48,36 @@ namespace idt
         _set_gate((idt_table + n), 0xEF, ist, addr); // p=1，DPL=3, type=F
     }
 
+    void dump_regs(struct pt_regs *regs, const char *error_str, ...)
+    {
+        char buf[128];
+        va_list args;
+        va_start(args, error_str);
+        vsprintf(buf, error_str, args);
+        va_end(args);
+
+        // printk("\033[0;0H");
+        // printk("\033[2J");
+        debug::printk("%s\n", buf);
+
+        debug::printk("RIP = %#018lx\n", regs->rip);
+        debug::printk("RAX = %#018lx, RBX = %#018lx\n", regs->rax, regs->rbx);
+        debug::printk("RCX = %#018lx, RDX = %#018lx\n", regs->rcx, regs->rdx);
+        debug::printk("RDI = %#018lx, RSI = %#018lx\n", regs->rdi, regs->rsi);
+        debug::printk("RSP = %#018lx, RBP = %#018lx\n", regs->rsp, regs->rbp);
+        debug::printk("R08 = %#018lx, R09 = %#018lx\n", regs->r8, regs->r9);
+        debug::printk("R10 = %#018lx, R11 = %#018lx\n", regs->r10, regs->r11);
+        debug::printk("R12 = %#018lx, R13 = %#018lx\n", regs->r12, regs->r13);
+        debug::printk("R14 = %#018lx, R15 = %#018lx\n", regs->r14, regs->r15);
+    }
+
     // 0 #DE 除法错误
     extern "C" void do_divide_error(struct pt_regs *regs, uint64_t error_code)
     {
         (void)error_code;
         (void)regs;
+
+        dump_regs(regs, "do_divder_error(0)");
 
         while (1)
             asm volatile("hlt");
@@ -64,6 +89,8 @@ namespace idt
         (void)error_code;
         (void)regs;
 
+        dump_regs(regs, "do_debug(1)");
+
         while (1)
             asm volatile("hlt");
     }
@@ -73,6 +100,8 @@ namespace idt
     {
         (void)error_code;
         (void)regs;
+
+        dump_regs(regs, "do_nmi(2)");
 
         while (1)
             asm volatile("hlt");
@@ -84,6 +113,8 @@ namespace idt
         (void)error_code;
         (void)regs;
 
+        dump_regs(regs, "do_int3(3)");
+
         return;
     }
 
@@ -92,6 +123,8 @@ namespace idt
     {
         (void)error_code;
         (void)regs;
+
+        dump_regs(regs, "do_overflow(4)");
 
         while (1)
             asm volatile("hlt");
@@ -103,6 +136,8 @@ namespace idt
         (void)error_code;
         (void)regs;
 
+        dump_regs(regs, "do_bounds(5)");
+
         while (1)
             asm volatile("hlt");
     }
@@ -112,6 +147,8 @@ namespace idt
     {
         (void)error_code;
         (void)regs;
+
+        dump_regs(regs, "do_undefined_opcode(6)");
 
         while (1)
             asm volatile("hlt");
@@ -123,6 +160,8 @@ namespace idt
         (void)error_code;
         (void)regs;
 
+        dump_regs(regs, "do_dev_not_avaliable(7)");
+
         while (1)
             asm volatile("hlt");
     }
@@ -132,6 +171,8 @@ namespace idt
     {
         (void)error_code;
         (void)regs;
+
+        dump_regs(regs, "do_double_fault(8)");
 
         while (1)
             asm volatile("hlt");
@@ -143,6 +184,8 @@ namespace idt
         (void)error_code;
         (void)regs;
 
+        dump_regs(regs, "do_coprocessor_segment_overrun(9)");
+
         while (1)
             asm volatile("hlt");
     }
@@ -152,6 +195,8 @@ namespace idt
     {
         (void)error_code;
         (void)regs;
+
+        dump_regs(regs, "do_invalid_TSS(10)");
 
         while (1)
             asm volatile("hlt");
@@ -163,6 +208,8 @@ namespace idt
         (void)error_code;
         (void)regs;
 
+        dump_regs(regs, "do_segment_not_exists(11)");
+
         while (1)
             asm volatile("hlt");
     }
@@ -173,6 +220,8 @@ namespace idt
         (void)error_code;
         (void)regs;
 
+        dump_regs(regs, "do_stack_segment_fault(12)");
+
         while (1)
             asm volatile("hlt");
     }
@@ -182,6 +231,8 @@ namespace idt
     {
         (void)error_code;
         (void)regs;
+
+        dump_regs(regs, "do_general_protection(13)");
 
         while (1)
             asm volatile("hlt");
@@ -195,6 +246,8 @@ namespace idt
         // cr2存储着触发异常的线性地址
         asm volatile("movq %%cr2, %0"
                      : "=r"(cr2)::"memory");
+
+        dump_regs(regs, "do_page_fault(14), fault address = %#018lx", cr2);
 
         (void)error_code;
         (void)regs;
@@ -211,6 +264,8 @@ namespace idt
         (void)error_code;
         (void)regs;
 
+        dump_regs(regs, "do_x87_FPU_error(16)");
+
         while (1)
             asm volatile("hlt");
     }
@@ -220,6 +275,8 @@ namespace idt
     {
         (void)error_code;
         (void)regs;
+
+        dump_regs(regs, "do_alignment_check(17)");
 
         while (1)
             asm volatile("hlt");
@@ -231,6 +288,8 @@ namespace idt
         (void)error_code;
         (void)regs;
 
+        dump_regs(regs, "do_machine_check(18)");
+
         while (1)
             asm volatile("hlt");
     }
@@ -241,6 +300,8 @@ namespace idt
         (void)error_code;
         (void)regs;
 
+        dump_regs(regs, "do_SIMD_exception(19)");
+
         while (1)
             asm volatile("hlt");
     }
@@ -250,6 +311,8 @@ namespace idt
     {
         (void)error_code;
         (void)regs;
+
+        dump_regs(regs, "do_virtualization_exception(20)");
 
         while (1)
             asm volatile("hlt");

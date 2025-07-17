@@ -23,6 +23,11 @@ struct pt_regs
     std::uint64_t rax;
     std::uint64_t func;
     std::uint64_t errcode;
+    std::uint64_t rip;
+    std::uint64_t cs;
+    std::uint64_t rflags;
+    std::uint64_t rsp;
+    std::uint64_t ss;
 };
 
 namespace idt
