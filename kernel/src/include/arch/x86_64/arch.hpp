@@ -2,6 +2,7 @@
 
 #include <libs/klibc.hpp>
 
+#include <arch/x86_64/debug.hpp>
 #include <arch/x86_64/table.hpp>
 #include <arch/x86_64/io.hpp>
 #include <arch/x86_64/acpi.hpp>

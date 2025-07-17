@@ -69,6 +69,8 @@ namespace apic_table
             (uint64_t)((uint64_t)(lapic_timer * 1000) / LAPIC_TIMER_SPEED);
         lapic_write(LAPIC_REG_TIMER, lapic_read(LAPIC_REG_TIMER) | 1 << 17);
         lapic_write(LAPIC_REG_TIMER_INITCNT, calibrated_timer_initial);
+
+        debug::printk("local apic init successfully\n");
     }
 
     uint64_t lapic_id()

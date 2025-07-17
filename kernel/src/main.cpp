@@ -67,6 +67,8 @@ extern "C" void kmain()
 
     frame::init();
 
+    debug::init();
+
     arch::init();
 
     hcf();
