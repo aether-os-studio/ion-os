@@ -49,7 +49,7 @@ namespace syscall
 
         std::uintptr_t virtaddr = frame::alloc_frames(count);
 
-        table.map_range(virtaddr, physaddr, count, table::page_table_flags::present | table::page_table_flags::read_write);
+        table.map_range(virtaddr, physaddr, count, table::page_table_flags::present | table::page_table_flags::read_write | table::page_table_flags::user);
 
         return virtaddr;
     }
@@ -69,21 +69,21 @@ namespace syscall
 
     std::size_t k_driver_cskt_impl(std::uintptr_t flags)
     {
-        thread::fd_info_t *fd_info = (thread::fd_info_t *)malloc(sizeof(thread::fd_info_t));
-        fd_info->kind = fd_info->fd_info_type_dsocket;
-        fd_info->dsock_handle = (dsocket::dsocket_handle_t *)malloc(sizeof(dsocket::dsocket_handle_t));
-        fd_info->dsock_handle->socket = (dsocket::dsocket_t *)malloc(sizeof(dsocket::dsocket_t));
-        fd_info->dsock_handle->socket->flags = flags;
-        fd_info->dsock_handle->socket->bind_addr = (char *)malloc(DSOCK_ADDR_MAX);
-        fd_info->dsock_handle->socket->pair = nullptr;
-        fd_info->dsock_handle->socket->state = dsocket::dsocket_state_disconnected;
+        thread::fd_info_t *file_info = (thread::fd_info_t *)malloc(sizeof(thread::fd_info_t));
+        file_info->kind = file_info->fd_info_type_dsocket;
+        file_info->dsock_handle = (dsocket::dsocket_handle_t *)malloc(sizeof(dsocket::dsocket_handle_t));
+        file_info->dsock_handle->socket = (dsocket::dsocket_t *)malloc(sizeof(dsocket::dsocket_t));
+        file_info->dsock_handle->socket->flags = flags;
+        file_info->dsock_handle->socket->bind_addr = (char *)malloc(DSOCK_ADDR_MAX);
+        file_info->dsock_handle->socket->pair = nullptr;
+        file_info->dsock_handle->socket->state = dsocket::dsocket_state_disconnected;
 
         dsocket::dsocket_t *d = &dsocket::driver_sockets;
         while (d->next)
             d = d->next;
-        d->next = fd_info->dsock_handle->socket;
+        d->next = file_info->dsock_handle->socket;
 
-        return thread::add_fd_info(thread::get_current_thread(), fd_info);
+        return thread::add_fd_info(thread::get_current_thread(), file_info);
     }
 
     std::size_t k_driver_bind_impl(std::size_t handle_id, dsocket::d_socket_addr_t *addr, std::size_t addrlen)
@@ -221,24 +221,24 @@ namespace syscall
         dsock->conn_max--;
         dsock->state = dsocket::dsocket_state_disconnected;
 
-        thread::fd_info_t *fd_info = (thread::fd_info_t *)malloc(sizeof(thread::fd_info_t));
-        fd_info->kind = fd_info->fd_info_type_dsocket;
-        fd_info->dsock_handle = (dsocket::dsocket_handle_t *)malloc(sizeof(dsocket::dsocket_handle_t));
-        fd_info->dsock_handle->socket = (dsocket::dsocket_t *)malloc(sizeof(dsocket::dsocket_t));
-        fd_info->dsock_handle->socket->flags = flags;
-        fd_info->dsock_handle->socket->bind_addr = (char *)malloc(DSOCK_ADDR_MAX);
+        thread::fd_info_t *file_info = (thread::fd_info_t *)malloc(sizeof(thread::fd_info_t));
+        file_info->kind = file_info->fd_info_type_dsocket;
+        file_info->dsock_handle = (dsocket::dsocket_handle_t *)malloc(sizeof(dsocket::dsocket_handle_t));
+        file_info->dsock_handle->socket = (dsocket::dsocket_t *)malloc(sizeof(dsocket::dsocket_t));
+        file_info->dsock_handle->socket->flags = flags;
+        file_info->dsock_handle->socket->bind_addr = (char *)malloc(DSOCK_ADDR_MAX);
 
-        fd_info->dsock_handle->socket->pair = pair;
-        fd_info->dsock_handle->socket->state = dsocket::dsocket_state_connected;
+        file_info->dsock_handle->socket->pair = pair;
+        file_info->dsock_handle->socket->state = dsocket::dsocket_state_connected;
 
-        fd_info->dsock_handle->op = &dsocket::accept_ops;
+        file_info->dsock_handle->op = &dsocket::accept_ops;
 
         dsocket::dsocket_t *d = &dsocket::driver_sockets;
         while (d->next)
             d = d->next;
-        d->next = fd_info->dsock_handle->socket;
+        d->next = file_info->dsock_handle->socket;
 
-        return thread::add_fd_info(t, fd_info);
+        return thread::add_fd_info(t, file_info);
     }
 
     std::size_t k_driver_listen_impl(std::size_t handle_id, int backlog)
@@ -307,6 +307,111 @@ namespace syscall
         dsocket::dsocket_t *dsock = handle->socket;
 
         return handle->op->recv(dsock, out, limit, flags, addr, len);
+    }
+
+    uint64_t k_clone_impl(struct pt_regs *regs, uint64_t flags, uint64_t newsp, int *parent_tid, int *child_tid, uint64_t tls)
+    {
+        thread::thread *t = thread::create(NULL, thread::get_current_thread()->tflags);
+
+        thread::get_current_thread()->arch_context->context = regs;
+
+        t->call_in_signal = thread::get_current_thread()->call_in_signal;
+        context::context_copy(t->arch_context, thread::get_current_thread()->arch_context, flags);
+        t->mm = arch_table::clone_page_table(thread::get_current_thread()->mm, flags);
+#if defined(__x86_64__)
+        if (newsp)
+            t->arch_context->context->rsp = newsp;
+#endif
+        // t->ppid = thread::get_current_thread()->pid;
+        // t->uid = thread::get_current_thread()->uid;
+        // t->gid = thread::get_current_thread()->gid;
+        // t->euid = thread::get_current_thread()->euid;
+        // t->egid = thread::get_current_thread()->egid;
+        // t->ruid = thread::get_current_thread()->ruid;
+        // t->rgid = thread::get_current_thread()->rgid;
+        // t->pgid = thread::get_current_thread()->pgid;
+        // t->sid = thread::get_current_thread()->sid;
+
+        t->jiffies = thread::get_current_thread()->jiffies;
+
+        t->file_info = (flags & CLONE_FILES) ? thread::get_current_thread()->file_info : (thread::thread_file_info_t *)malloc(sizeof(thread::thread_file_info_t));
+
+        if (!(flags & CLONE_FILES))
+        {
+            memset(t->file_info->fds, 0, sizeof(t->file_info->fds));
+
+            for (int i = 0; i < thread::get_current_thread()->file_info->max_fd_count; i++)
+            {
+                thread::fd_info_t *fd = thread::get_current_thread()->file_info->fds[i];
+
+                if (fd)
+                {
+                    t->file_info->fds[i] = (thread::fd_info_t *)malloc(sizeof(thread::fd_info_t));
+                    memcpy(t->file_info->fds[i], fd, sizeof(thread::fd_info_t));
+                }
+                else
+                {
+                    t->file_info->fds[i] = NULL;
+                }
+            }
+        }
+        else
+        {
+            t->file_info->ref_count++;
+        }
+
+        // if (flags & CLONE_SIGHAND)
+        // {
+        //     memcpy(t->actions, thread::get_current_thread()->actions, sizeof(t->actions));
+        //     t->signal = thread::get_current_thread()->signal;
+        //     t->blocked = thread::get_current_thread()->blocked;
+        // }
+        // else
+        // {
+        //     memset(t->actions, 0, sizeof(t->actions));
+        // }
+
+        if (flags & CLONE_SETTLS)
+        {
+#if defined(__x86_64__)
+            t->arch_context->fsbase = tls;
+#endif
+        }
+
+        if (flags & CLONE_PARENT_SETTID)
+        {
+            *parent_tid = (int)thread::get_current_thread()->id;
+        }
+
+        if (flags & CLONE_CHILD_SETTID)
+        {
+            *child_tid = (int)t->id;
+        }
+
+        t->child_vfork_done = false;
+
+        if (flags & CLONE_VFORK)
+        {
+            t->is_vfork = true;
+        }
+        else
+        {
+            t->is_vfork = false;
+        }
+
+        if (flags & CLONE_VFORK)
+        {
+            thread::get_current_thread()->child_vfork_done = false;
+
+            while (!thread::get_current_thread()->child_vfork_done)
+            {
+                arch::yield();
+            }
+
+            thread::get_current_thread()->child_vfork_done = false;
+        }
+
+        return t->id;
     }
 
 }

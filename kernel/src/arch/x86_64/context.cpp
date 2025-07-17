@@ -16,6 +16,10 @@ namespace context
         ctx->context->ss = 0x10;
         ctx->context->ds = 0x10;
         ctx->context->es = 0x10;
+        ctx->fs = 0x10;
+        ctx->gs = 0x10;
+        ctx->fsbase = 0;
+        ctx->gsbase = 0;
         ctx->fpu = (struct fx_state *)aligned_alloc(16, sizeof(struct fx_state));
         ctx->fpu->mxcsr = 0x1f80;
         ctx->fpu->fcw = 0x037f;
@@ -34,7 +38,15 @@ namespace context
         asm volatile("fxsave (%0)" ::"r"(prev->fpu));
         asm volatile("fxrstor (%0)" ::"r"(next->fpu));
 
+        prev->fsbase = x86_io::rdmsr(0xc0000100);
+        prev->gsbase = x86_io::rdmsr(0xc0000101);
+
         apic_table::tss[arch::get_current_cpu_id()].rsp0 = (std::uint64_t)(next->context + 1);
+
+        asm volatile("mov %0, %%fs\n\t" ::"r"(next->fs));
+        asm volatile("mov %0, %%gs\n\t" ::"r"(next->gs));
+        x86_io::wrmsr(0xc0000100, next->fsbase);
+        x86_io::wrmsr(0xc0000101, next->gsbase);
 
         asm volatile("mov %0, %%rsp\n\t"
                      "jmp ret_from_exception" ::"r"(next->context));

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <libs/klibc.hpp>
+#include <arch/x86_64/idt.hpp>
+#include <arch/x86_64/io.hpp>
 
 #define IA32_KERNEL_GS_BASE 0xc0000102
 
@@ -64,6 +66,10 @@ namespace context
     {
         struct pt_regs *context;
         struct fx_state *fpu;
+        std::uint64_t fs;
+        std::uint64_t gs;
+        std::uint64_t fsbase;
+        std::uint64_t gsbase;
     } arch_context_t;
 
     arch_context_t *arch_context_init(void *entry, void *stack);
@@ -79,6 +85,18 @@ namespace context
     static inline void set_current_thread_addr(std::uint64_t thread)
     {
         x86_io::wrmsr(IA32_KERNEL_GS_BASE, thread);
+    }
+
+    static inline void context_copy(arch_context *to, arch_context_t *from, std::uint64_t flags)
+    {
+        (void)flags;
+
+        memcpy(to->context, from->context, sizeof(struct pt_regs));
+        memcpy(to->fpu, from->fpu, sizeof(struct fx_state));
+        to->fs = from->fs;
+        to->gs = from->gs;
+        to->fsbase = from->fsbase;
+        to->gsbase = from->gsbase;
     }
 
 }

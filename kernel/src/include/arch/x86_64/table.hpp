@@ -1,6 +1,10 @@
+#pragma once
+
 #include <libs/klibc.hpp>
 
 #include <mm/table.hpp>
+
+#include <arch/x86_64/context.hpp>
 
 #define PAGE_SIZE 4096
 
@@ -38,5 +42,8 @@ namespace arch_table
     };
 
     page_table from_current(bool user);
+
+    context::mm_context_t *clone_page_table(context::mm_context_t *old, uint64_t flags);
+    void free_page_table(context::mm_context_t *directory);
 
 }

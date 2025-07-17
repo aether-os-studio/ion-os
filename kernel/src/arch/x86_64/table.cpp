@@ -1,6 +1,8 @@
 #include <arch/x86_64/table.hpp>
+#include <arch/x86_64/spinlock.hpp>
 #include <mm/hhdm.hpp>
 #include <mm/frame.hpp>
+#include <mm/heap.hpp>
 
 typedef struct page_table_entry
 {
@@ -139,6 +141,89 @@ namespace arch_table
         std::uintptr_t cr3 = 0;
         asm volatile("movq %%cr3, %0" : "=r"(cr3));
         return arch_table::page_table(cr3, user);
+    }
+
+    static page_table_t *copy_page_table_recursive(page_table_t *source_table, int level, bool all_copy, bool kernel_space)
+    {
+        if (source_table == NULL)
+            return NULL;
+        if (level == 0)
+        {
+            if (kernel_space)
+            {
+                return source_table;
+            }
+
+            uint64_t frame = frame::alloc_frames(1);
+            page_table_t *new_page_table = (page_table_t *)hhdm::phys_to_virt(frame);
+            memcpy(new_page_table, ((page_table_t *)hhdm::phys_to_virt((std::uintptr_t)source_table))->entries, PAGE_SIZE);
+            return new_page_table;
+        }
+
+        uint64_t phy_frame = frame::alloc_frames(1);
+        page_table_t *new_table = (page_table_t *)hhdm::phys_to_virt(phy_frame);
+        for (uint64_t i = 0; i < (all_copy ? 512 : (level == 4 ? 256 : 512)); i++)
+        {
+            if (((page_table_t *)hhdm::phys_to_virt((std::uintptr_t)source_table))->entries[i].value)
+            {
+                new_table->entries[i].value = ((page_table_t *)hhdm::phys_to_virt((std::uintptr_t)source_table))->entries[i].value;
+                continue;
+            }
+
+            page_table_t *source_page_table_next = (page_table_t *)(((page_table_t *)hhdm::phys_to_virt((std::uintptr_t)source_table))->entries[i].value & 0x00007ffffffff000);
+            page_table_t *new_page_table = copy_page_table_recursive(source_page_table_next, level - 1, all_copy, level != 4 ? kernel_space : i >= 256);
+            new_table->entries[i].value = (uint64_t)hhdm::virt_to_phys((uint64_t)new_page_table) | (((page_table_t *)hhdm::phys_to_virt((std::uintptr_t)source_table))->entries[i].value & 0xFFFF000000000FFF);
+        }
+        return new_table;
+    }
+
+    static void free_page_table_recursive(page_table_t *table, int level)
+    {
+        if ((std::uintptr_t)table == hhdm::phys_to_virt(NULL))
+            return;
+        if (level == 0)
+        {
+            frame::free_frames((uint64_t)hhdm::virt_to_phys((uint64_t)table), 1);
+            return;
+        }
+
+        for (int i = 0; i < (level == 4 ? 256 : 512); i++)
+        {
+            page_table_t *page_table_next = (page_table_t *)hhdm::phys_to_virt(table->entries[i].value & 0x00007ffffffff000);
+            free_page_table_recursive(page_table_next, level - 1);
+        }
+        frame::free_frames((uint64_t)hhdm::virt_to_phys((uint64_t)table), 1);
+    }
+
+    spinlock_t clone_lock = SPIN_INIT;
+
+    context::mm_context_t *clone_page_table(context::mm_context_t *old, uint64_t flags)
+    {
+        if (flags & 0x00000100)
+        {
+            old->ref_count++;
+            return old;
+        }
+        spin_lock(&clone_lock);
+        context::mm_context_t *new_mm = (context::mm_context_t *)malloc(sizeof(context::mm_context_t));
+        memset(new_mm, 0, sizeof(context::mm_context_t));
+        new_mm->page_table_phys = hhdm::virt_to_phys((uint64_t)copy_page_table_recursive((page_table_t *)old->page_table_phys, 4, !!(flags & 0x00000100), false));
+        memcpy((uint64_t *)hhdm::phys_to_virt(new_mm->page_table_phys) + 256, (uint64_t *)hhdm::phys_to_virt(old->page_table_phys) + 256, PAGE_SIZE / 2);
+        new_mm->ref_count++;
+        spin_unlock(&clone_lock);
+        return new_mm;
+    }
+
+    void free_page_table(context::mm_context_t *directory)
+    {
+        if (directory->ref_count == 1)
+        {
+            free_page_table_recursive((page_table_t *)hhdm::phys_to_virt(directory->page_table_phys), 4);
+        }
+        else
+        {
+            directory->ref_count--;
+        }
     }
 
 }

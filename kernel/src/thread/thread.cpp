@@ -82,6 +82,9 @@ namespace thread
         t->file_info->max_fd_count = DEFAULT_FD_NUM;
         t->file_info->ref_count++;
 
+        t->child_vfork_done = false;
+        t->is_vfork = false;
+
         t->set_state(kRunNone);
 
         spin_unlock(&new_thread_lock);
