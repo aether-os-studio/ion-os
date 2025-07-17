@@ -74,6 +74,7 @@ namespace thread
         t->mm->ref_count++;
 
         t->tflags = tflags;
+        t->status = 0;
 
         t->file_info = (thread_file_info_t *)malloc(sizeof(thread_file_info_t));
         memset(t->file_info, 0, sizeof(thread_file_info_t));

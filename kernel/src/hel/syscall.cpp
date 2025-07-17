@@ -1,5 +1,6 @@
 #include <hel/syscall.hpp>
 
+#include <mm/hhdm.hpp>
 #include <mm/frame.hpp>
 #include <mm/heap.hpp>
 #include <arch/arch.hpp>
@@ -412,6 +413,45 @@ namespace syscall
         }
 
         return t->id;
+    }
+
+    uint64_t k_exit_impl(uint64_t exit_code)
+    {
+        thread::thread *t = thread::get_current_thread();
+
+        frame::free_frames(hhdm::virt_to_phys((uintptr_t)(t->arch_context->context + 1)), (thread::kThreadStackSize / PAGE_SIZE));
+        context::arch_context_free(t->arch_context);
+
+        t->mm->ref_count--;
+        if (t->mm->ref_count == 0)
+        {
+            arch_table::free_page_table(t->mm);
+        }
+
+        for (int i = 0; i < t->file_info->max_fd_count; i++)
+        {
+            if (t->file_info->fds[i])
+            {
+                // todo: close file
+                free(t->file_info->fds[i]);
+            }
+        }
+
+        free(t->file_info->fds);
+        free(t->file_info);
+
+        t->status = exit_code;
+
+        t->set_state(thread::kRunTerminated);
+
+        thread::thread *next = thread::search(thread::kRunNone, arch::get_current_cpu_id());
+
+        context::thread_switch_to(nullptr, nullptr, next->arch_context);
+
+        while (1)
+        {
+            arch::yield();
+        }
     }
 
 }

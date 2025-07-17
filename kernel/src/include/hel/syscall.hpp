@@ -81,4 +81,6 @@ namespace syscall
 
     uint64_t k_clone_impl(struct pt_regs *regs, uint64_t flags, uint64_t newsp, int *parent_tid, int *child_tid, uint64_t tls);
 
+    uint64_t k_exit_impl(uint64_t exit_code);
+
 }

@@ -131,6 +131,8 @@ namespace thread
 
         flags tflags;
 
+        uint64_t status;
+
         bool child_vfork_done;
 
         bool is_vfork;

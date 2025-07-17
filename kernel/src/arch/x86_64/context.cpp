@@ -26,6 +26,12 @@ namespace context
         return ctx;
     }
 
+    void arch_context_free(arch_context_t *ctx)
+    {
+        free(ctx->fpu);
+        free(ctx);
+    }
+
     void thread_switch_mm(std::uintptr_t next)
     {
         asm volatile("movq %0, %%cr3" ::"r"(next) : "memory");
@@ -33,13 +39,16 @@ namespace context
 
     void thread_switch_to(struct pt_regs *intr_frame, arch_context_t *prev, arch_context_t *next)
     {
-        prev->context = intr_frame;
+        if (intr_frame && prev)
+        {
+            prev->context = intr_frame;
 
-        asm volatile("fxsave (%0)" ::"r"(prev->fpu));
-        asm volatile("fxrstor (%0)" ::"r"(next->fpu));
+            asm volatile("fxsave (%0)" ::"r"(prev->fpu));
+            asm volatile("fxrstor (%0)" ::"r"(next->fpu));
 
-        prev->fsbase = x86_io::rdmsr(0xc0000100);
-        prev->gsbase = x86_io::rdmsr(0xc0000101);
+            prev->fsbase = x86_io::rdmsr(0xc0000100);
+            prev->gsbase = x86_io::rdmsr(0xc0000101);
+        }
 
         apic_table::tss[arch::get_current_cpu_id()].rsp0 = (std::uint64_t)(next->context + 1);
 

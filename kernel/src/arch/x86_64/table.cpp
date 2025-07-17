@@ -179,7 +179,7 @@ namespace arch_table
 
     static void free_page_table_recursive(page_table_t *table, int level)
     {
-        if ((std::uintptr_t)table == hhdm::phys_to_virt(NULL))
+        if ((std::uintptr_t)table == hhdm::phys_to_virt(0))
             return;
         if (level == 0)
         {

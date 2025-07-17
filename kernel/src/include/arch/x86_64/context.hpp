@@ -73,6 +73,7 @@ namespace context
     } arch_context_t;
 
     arch_context_t *arch_context_init(void *entry, void *stack);
+    void arch_context_free(arch_context_t *ctx);
 
     void thread_switch_mm(std::uintptr_t next);
     void thread_switch_to(struct pt_regs *intr_frame, arch_context_t *prev, arch_context_t *next);
