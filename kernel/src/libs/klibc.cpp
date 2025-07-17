@@ -1,4 +1,5 @@
 #include <libs/klibc.hpp>
+#include <arch/arch.hpp>
 
 extern "C"
 {
@@ -76,6 +77,11 @@ extern "C"
             maxlen--;
         }
         return (es - s);
+    }
+
+    std::size_t strlen(const char *s)
+    {
+        return strnlen(s, PAGE_SIZE);
     }
 }
 

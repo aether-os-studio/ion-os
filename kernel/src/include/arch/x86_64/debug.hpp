@@ -7,6 +7,6 @@ namespace debug
 
     void write(char a);
 
-    void printk(const char *fmt, ...);
+    int printk(const char *fmt, ...);
 
 }

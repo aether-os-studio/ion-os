@@ -15,10 +15,6 @@
 #define ALLOC_LARGE_BLK_SIZE ((size_t)16384)
 #endif
 
-#ifndef PAGE_SIZE
-#define PAGE_SIZE ((size_t)4096)
-#endif
-
 //* ----------------------------------------------------------------------------------------------------
 //& 标准库内存分配函数
 

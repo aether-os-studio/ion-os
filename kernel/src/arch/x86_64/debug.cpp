@@ -39,7 +39,7 @@ namespace debug
 
     spinlock_t lock = SPIN_INIT;
 
-    void printk(const char *fmt, ...)
+    int printk(const char *fmt, ...)
     {
         spin_lock(&lock);
 
@@ -56,6 +56,8 @@ namespace debug
         }
 
         spin_unlock(&lock);
+
+        return len;
     }
 
 }

@@ -51,6 +51,7 @@ extern void (*__init_array_end[])();
 #include <mm/frame.hpp>
 #include <arch/arch.hpp>
 #include <mm/heap.hpp>
+#include <hel/syscall.hpp>
 #include <thread/thread.hpp>
 #include <thread/schedule.hpp>
 
@@ -75,6 +76,8 @@ extern "C" void kmain()
     arch::init();
 
     heap::init();
+
+    syscall::init();
 
     thread::init();
 

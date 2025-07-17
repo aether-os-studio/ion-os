@@ -59,6 +59,8 @@ namespace thread
 
         thread *t = get_free_thread();
 
+        t->call_in_signal = false;
+
         t->cpu_id = alloc_cpu_id();
         t->jiffies = 0;
 
@@ -71,12 +73,37 @@ namespace thread
         t->mm->page_table_phys = arch::get_current_page_table();
         t->mm->ref_count++;
 
-        t->set_state(kRunNone);
         t->tflags = tflags;
+
+        t->file_info = (thread_file_info_t *)malloc(sizeof(thread_file_info_t));
+        memset(t->file_info, 0, sizeof(thread_file_info_t));
+        t->file_info->fds = (fd_info_t **)malloc(sizeof(fd_info_t *) * DEFAULT_FD_NUM);
+        memset(t->file_info->fds, 0, sizeof(fd_info_t *) * DEFAULT_FD_NUM);
+        t->file_info->max_fd_count = DEFAULT_FD_NUM;
+        t->file_info->ref_count++;
+
+        t->set_state(kRunNone);
 
         spin_unlock(&new_thread_lock);
 
         return t;
+    }
+
+    std::size_t add_fd_info(thread *t, fd_info_t *f)
+    {
+        if (t->file_info)
+        {
+            for (int i = 0; i < t->file_info->max_fd_count; i++)
+            {
+                if (!t->file_info->fds[i])
+                {
+                    t->file_info->fds[i] = f;
+                    return i;
+                }
+            }
+        }
+
+        return (std::size_t)-1;
     }
 
     spinlock_t search_lock = SPIN_INIT;
@@ -143,6 +170,23 @@ namespace thread
         set_current_thread(idle_threads[arch::get_current_cpu_id()]);
 
         thread_initialized = true;
+    }
+
+    std::size_t getpid()
+    {
+        return get_current_thread()->id;
+    }
+
+    std::size_t clone(struct pt_regs *regs)
+    {
+        (void)regs;
+        return syscall::k_hel_error_not_implemented;
+    }
+
+    std::size_t exit(std::size_t exit_code)
+    {
+        (void)exit_code;
+        return syscall::k_hel_error_none;
     }
 
 }

@@ -6,6 +6,9 @@
 
 #define MAX_CPU_NUM 64
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
 extern "C"
 {
 
@@ -18,6 +21,8 @@ extern "C"
     int memcmp(const void *s1, const void *s2, std::size_t n);
 
     std::size_t strnlen(const char *s, std::size_t maxlen);
+
+    std::size_t strlen(const char *s);
 }
 
 static inline int isdigit(int c)

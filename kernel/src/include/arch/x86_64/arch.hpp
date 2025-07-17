@@ -11,6 +11,7 @@
 #include <arch/x86_64/apic.hpp>
 #include <arch/x86_64/gdt.hpp>
 #include <arch/x86_64/idt.hpp>
+#include <arch/x86_64/syscall.hpp>
 #include <arch/x86_64/context.hpp>
 
 namespace arch
@@ -28,6 +29,11 @@ namespace arch
     static inline int get_current_cpu_id()
     {
         return apic_table::get_cpuid_by_lapic_id(apic_table::lapic_id());
+    }
+
+    static inline void yield()
+    {
+        asm volatile("int %0" ::"i"(apic_table::idx_timer));
     }
 
 }
